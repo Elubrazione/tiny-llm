@@ -40,19 +40,22 @@ class RoPE:
         freqs = freqs.reshape(-1, l_dim, 1, self.half_dim, 2)  # add head dim
         
         re_x = x.reshape(n_dim, l_dim, head_num, head_dim // 2, 2)
-        re_x0 = re_x[..., 0]
-        re_x1 = re_x[..., 1]
+        if self.traditional:
+            re_x0 = re_x[..., 0]
+            re_x1 = re_x[..., 1]
+        else:
+            re_x0 = x[..., 0: self.half_dim]
+            re_x1 = x[..., self.half_dim:]
 
         # merge_freqs: (L, D // 2, 2) => (1 or N, L, 1, D // 2, 2)
-        # it will be broadcosted into (N, L, H, D // 2, 1) when @ with x (N, L, H, D // 2, 1)
+        # it will be broadcosted into (N, L, H, D // 2, 2) when @ with x (N, L, H, D // 2, 2)
         cos = freqs[..., 0]
         sin = freqs[..., 1]
 
         out0 = re_x0 * cos - re_x1 * sin
         out1 = re_x1 * cos + re_x0 * sin
-        out = mx.stack([out0, out1], axis=-1)  # (N, L, H, D // 2, 2)
-
-        return out.reshape(n_dim, l_dim, head_num, head_dim).astype(x.dtype)    # (N, L, D)
+        out = (mx.stack if self.traditional else mx.concat)([out0, out1], axis=-1)
+        return out.reshape(n_dim, l_dim, head_num, head_dim)    # (N, L, D)
 
 
             
