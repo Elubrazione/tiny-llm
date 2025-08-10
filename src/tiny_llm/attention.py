@@ -83,8 +83,9 @@ class SimpleMultiHeadAttention:
 
 
 def causal_mask(L: int, S: int, dtype: mx.Dtype) -> mx.array:
-    pass
-
+    masked_matrix = mx.tril(mx.ones((L, S)), k = (S - L))
+    causal_mask = mx.where(masked_matrix, mx.array(0), mx.array(-mx.inf)).astype(dtype)
+    return causal_mask
 
 def scaled_dot_product_attention_grouped(
     query: mx.array,
@@ -114,6 +115,8 @@ def scaled_dot_product_attention_grouped(
     value = value.reshape(*batch_dim, -1, kv_head_num, 1, seq_dim, head_dim)
 
     if mask is not None:
+        if mask == "causal":
+            mask = causal_mask(l_dim, seq_dim, query.dtype)
         # `mask` may not have the dimension of batch_dim and heads,
         # that means all batches and heads share the same mask, so we need to broadcast first
         mask = mx.broadcast_to(mask, (*batch_dim, q_head_num, l_dim, seq_dim))
