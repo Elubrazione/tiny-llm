@@ -55,7 +55,7 @@ class RoPE:
         out0 = re_x0 * cos - re_x1 * sin
         out1 = re_x1 * cos + re_x0 * sin
         out = (mx.stack if self.traditional else mx.concat)([out0, out1], axis=-1)
-        return out.reshape(n_dim, l_dim, head_num, head_dim)    # (N, L, D)
+        return out.reshape(n_dim, l_dim, head_num, head_dim)    # (N, L, H, D)
 
 
             

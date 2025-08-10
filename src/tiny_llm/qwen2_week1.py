@@ -24,7 +24,42 @@ class Qwen2MultiHeadAttention:
         max_seq_len: int = 32768,
         theta: int = 1000000,
     ):
-        pass
+        assert hidden_size % num_heads == 0
+        self.head_dim = hidden_size // num_heads
+        self.scale = mx.rsqrt(self.head_dim)
+
+        for it in [wq, wo]:
+            assert it.shape == (num_heads * self.head_dim, hidden_size)
+        for it in [wk, wv]:
+            assert it.shape == (num_kv_heads * self.head_dim, hidden_size)
+
+        assert num_heads % num_kv_heads == 0
+        self.n_repeats = num_heads // num_kv_heads
+        
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
+        self.hidden_size = hidden_size
+        
+        self.wq, self.bq = wq, bq
+        self.wk, self.bk = wk, bk
+        self.wv, self.bv = wv, bv
+        self.wo = wo
+        
+        # rope.traditional: False (default), same as in Qwen2
+        self.rope = RoPE(dims=self.head_dim, seq_len=max_seq_len, base=theta)
+        
+    def _get_weighted_matrix_without_transpose(
+        self,
+        x: mx.array,
+        w: mx.array,
+        b: mx.array,
+        h: int,
+    ):
+        n_dim, l_dim, _ = x.shape
+        # (B x L x E) @ ((H_q/H x D) x E)^T => (B x L x (H_q/H x D))
+        # => (B x L x (H_q/H x D)) => (B x L x H_q/H x D)
+        return linear(x, w, b). \
+            reshape(n_dim, l_dim, h, self.head_dim)
 
     def __call__(
         self,
@@ -32,7 +67,42 @@ class Qwen2MultiHeadAttention:
         offset: int,
         mask: mx.array | str | None = None,
     ) -> mx.array:
-        pass
+        '''
+        x: B, L, E
+        q = linear(x, wq, bq) -> B, L, H_q, D
+        k = linear(x, wk, bk) -> B, L, H, D
+        v = linear(x, wv, bv) -> B, L, H, D
+        q = rope(q, offset=slice(offset, offset + L))
+        k = rope(k, offset=slice(offset, offset + L))
+        (transpose as needed)
+        x = scaled_dot_product_attention_grouped(q, k, v, scale, mask) -> B, L, H_q, D ; Do this at float32 precision
+        (transpose as needed)
+        x = linear(x, wo) -> B, L, E
+        '''
+        B, L, E = x.shape
+        assert E == self.hidden_size, "Expected E == self.hidden_size!"
+        query, key, value = tuple(map(
+            lambda x: self._get_weighted_matrix_without_transpose(*x),
+            zip(
+                [x] * 3, [self.wq, self.wk, self.wv],
+                [self.bq, self.bk, self.bv], [self.num_heads] + [self.num_kv_heads] * 2
+            )
+        ))
+        query, key = tuple(map(lambda it: \
+            self.rope(it, offset=slice(offset, offset + L)), [query, key]))
+        
+        # (B x H_q x L x D) => (B x L x H_q x D) => (B x L x E)
+        out = scaled_dot_product_attention_grouped(
+            query.swapaxes(-2, -3), key.swapaxes(-2, -3),
+            value.swapaxes(-2, -3), mask=mask
+        ).swapaxes(-2, -3).reshape(B, L, E)
+
+        return linear(out, self.wo)
+        
+        
+        
+        
+        
 
 
 class Qwen2MLP:
