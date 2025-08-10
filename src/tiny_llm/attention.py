@@ -93,7 +93,34 @@ def scaled_dot_product_attention_grouped(
     scale: float | None = None,
     mask: mx.array | str | None = None,
 ) -> mx.array:
-    pass
+    '''
+    query: N.. x H_q x L x D
+    key: N.. x H x S x D
+    value: N.. x H x S x D
+    mask: N.. x H_q x L x S
+    output: N.. x H_q x L x D
+    '''
+    original_reshap = query.shape
+    batch_dim = query.shape[: -3]
+    q_head_num, l_dim, head_dim = query.shape[-3: ]
+    kv_head_num, seq_dim, _ = key.shape[-3: ]
+    assert q_head_num % kv_head_num == 0, \
+        f"the number of query heads nust be divisible by the number of key/value heads!"
+    n_repeats = q_head_num // kv_head_num
+    
+    # N.. is zero or more dimensions for batches
+    query = query.reshape(*batch_dim, -1, kv_head_num, n_repeats, l_dim, head_dim)
+    key = key.reshape(*batch_dim, -1, kv_head_num, 1, seq_dim, head_dim)
+    value = value.reshape(*batch_dim, -1, kv_head_num, 1, seq_dim, head_dim)
+
+    if mask is not None:
+        # `mask` may not have the dimension of batch_dim and heads,
+        # that means all batches and heads share the same mask, so we need to broadcast first
+        mask = mx.broadcast_to(mask, (*batch_dim, q_head_num, l_dim, seq_dim))
+        mask = mask.reshape(*batch_dim, 1, kv_head_num, n_repeats, l_dim, seq_dim)
+
+    return scaled_dot_product_attention_simple(query, key, value, scale, mask).reshape(original_reshap)
+    
 
 
 def flash_attention(
