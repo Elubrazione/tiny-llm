@@ -123,8 +123,8 @@ class Qwen2MLP:
         assert w_up.shape == (hidden_dim, dim)
         assert w_down.shape == (dim, hidden_dim)
 
-        self.dim = dim  # intermediate_size
-        self.hidden_dim = hidden_dim
+        self.dim = dim  # embedding_size of model
+        self.hidden_dim = hidden_dim    # intermediate_size of MLP
         self.w_gate = w_gate    # (I x E)
         self.w_up = w_up        # (I x E)
         self.w_down = w_down    # (E x I)
@@ -157,7 +157,12 @@ class Qwen2TransformerBlock:
         max_seq_len: int = 32768,
         theta: int = 1000000,
     ):
-        pass
+        self.input_layernorm = RMSNorm(hidden_size, w_input_layernorm, rms_norm_eps)
+        self.post_attention_layernorm = RMSNorm(hidden_size, w_post_attention_layernorm, rms_norm_eps)
+
+        self.multi_head_att = Qwen2MultiHeadAttention(hidden_size, num_attention_heads, num_kv_heads,
+                                                      wq, wk, wv, wo, bq, bk, bv, max_seq_len, theta)
+        self.mlp = Qwen2MLP(hidden_size, intermediate_size, w_gate, w_up, w_down)
 
     def __call__(
         self,
@@ -165,8 +170,13 @@ class Qwen2TransformerBlock:
         offset: int,
         mask: mx.array | str | None = None,
     ) -> mx.array:
-        pass
-
+        out1 = self.multi_head_att(self.input_layernorm(x),
+                                  offset=offset, mask=mask)
+        out2 = out1 + x
+        out3 = self.mlp(self.post_attention_layernorm(out2))
+        out = out3 + out2
+        return out
+        
 
 class Qwen2ModelWeek1:
     def __init__(self, mlx_model: Any):
