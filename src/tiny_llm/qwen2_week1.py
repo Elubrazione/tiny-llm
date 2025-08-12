@@ -119,10 +119,19 @@ class Qwen2MLP:
         w_up: mx.array,
         w_down: mx.array,
     ):
-        pass
+        assert w_gate.shape == (hidden_dim, dim)
+        assert w_up.shape == (hidden_dim, dim)
+        assert w_down.shape == (dim, hidden_dim)
+
+        self.dim = dim  # intermediate_size
+        self.hidden_dim = hidden_dim
+        self.w_gate = w_gate    # (I x E)
+        self.w_up = w_up        # (I x E)
+        self.w_down = w_down    # (E x I)
 
     def __call__(self, x: mx.array) -> mx.array:
-        pass
+        out = silu(linear(x, self.w_gate)) * linear(x, self.w_up)
+        return linear(out, self.w_down)
 
 
 class Qwen2TransformerBlock:
