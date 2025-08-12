@@ -68,41 +68,46 @@ class Qwen2MultiHeadAttention:
         mask: mx.array | str | None = None,
     ) -> mx.array:
         '''
-        x: B, L, E
-        q = linear(x, wq, bq) -> B, L, H_q, D
-        k = linear(x, wk, bk) -> B, L, H, D
-        v = linear(x, wv, bv) -> B, L, H, D
-        q = rope(q, offset=slice(offset, offset + L))
-        k = rope(k, offset=slice(offset, offset + L))
-        (transpose as needed)
-        x = scaled_dot_product_attention_grouped(q, k, v, scale, mask) -> B, L, H_q, D ; Do this at float32 precision
-        (transpose as needed)
-        x = linear(x, wo) -> B, L, E
+        Multi-head attention forward pass with RoPE (Rotary Positional Embedding)
+        and grouped attention.
+
+        Args:
+            x: Input tensor of shape (B, L, E)
+                - B = batch size
+                - L = sequence length
+                - E = embedding dimension (hidden size)
+            offset: Starting position index for RoPE (used for streaming or segmented input)
+            mask: Optional attention mask (tensor or special string type)
+        Returns:
+            Output tensor of shape (B, L, E)
         '''
         B, L, E = x.shape
         assert E == self.hidden_size, "Expected E == self.hidden_size!"
+        
+        # Project input x into Query, Key, and Value tensors, shape after projection:
+        # query => (B, L, H_q, D), key => (B, L, H, D), value => (B, L, H, D)
         query, key, value = tuple(map(
             lambda x: self._get_weighted_matrix_without_transpose(*x),
             zip(
-                [x] * 3, [self.wq, self.wk, self.wv],
-                [self.bq, self.bk, self.bv], [self.num_heads] + [self.num_kv_heads] * 2
+                [x] * 3,                          # same input for Q, K, V
+                [self.wq, self.wk, self.wv],      # corresponding weights
+                [self.bq, self.bk, self.bv],      # corresponding biases
+                [self.num_heads] + [self.num_kv_heads] * 2  # head counts for Q and KV
             )
         ))
-        query, key = tuple(map(lambda it: \
-            self.rope(it, offset=slice(offset, offset + L)), [query, key]))
-        
-        # (B x H_q x L x D) => (B x L x H_q x D) => (B x L x E)
+
+        # Apply rotary RoPE to query and key
+        query, key = tuple(map(
+            lambda it: self.rope(it, offset=slice(offset, offset + L)), [query, key]
+        ))
+
+        # Perform scaled dot-product attention, swap axes (B, L, H, D) => (B, H, L, D)
+        # After attention swap back and reshape to (B, H_q, L, D) => (B, L, H_q, D) => (B, L, E)
         out = scaled_dot_product_attention_grouped(
-            query.swapaxes(-2, -3), key.swapaxes(-2, -3),
-            value.swapaxes(-2, -3), mask=mask
+            query.swapaxes(-2, -3), key.swapaxes(-2, -3), value.swapaxes(-2, -3), mask=mask
         ).swapaxes(-2, -3).reshape(B, L, E)
 
         return linear(out, self.wo)
-        
-        
-        
-        
-        
 
 
 class Qwen2MLP:
