@@ -19,7 +19,8 @@ dependencies = [
     # this should not usually appear in a project dependency list but we add it to simplify the setup process
     "setuptools>=62",
     "nanobind==2.4.0",
-    "pytest-benchmark>=5.1.0"
+    "pytest-benchmark>=5.1.0",
+    "huggingface-hub>=0.34.4"
 ]
 
 [tool.pdm.scripts]
