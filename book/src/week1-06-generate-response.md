@@ -64,9 +64,9 @@ We will optimize the `decode` process to use key-value cache to speed up the gen
 You can test your implementation by running the following command:
 
 ```bash
-pdm run main --solution tiny_llm --loader week1 --model Qwen/Qwen2-0.5B-Instruct-MLX \
+pdm run main --solution tiny_llm --loader week1 --model qwen2-0.5b \
   --prompt "Give me a short introduction to large language model"
-pdm run main --solution tiny_llm --loader week1 --model Qwen/Qwen2-7B-Instruct-MLX \
+pdm run main --solution tiny_llm --loader week1 --model qwen2-7b \
   --prompt "Give me a short introduction to large language model"
 ```
 

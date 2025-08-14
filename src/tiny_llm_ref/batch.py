@@ -3,6 +3,7 @@ from mlx_lm.tokenizer_utils import TokenizerWrapper
 from .kv_cache import *
 from .qwen2_week2 import Qwen2ModelWeek2
 from typing import Callable
+from datetime import datetime
 
 
 def _step(model, y, offsets, kv_cache):
@@ -83,16 +84,18 @@ def _print_progress(
     pending_prefill_request: Request | None,
     queue_size: int,
     progress_cnt: int,
+    start_time: datetime,
 ):
-    print("  ---")
+    print(f"  --- {datetime.now() - start_time}")
     animation_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
     animation_frame = animation_frames[progress_cnt % len(animation_frames)]
     for i in range(len(requests)):
         if is_idle[i]:
             print(f"  Decode #{i}: idle", flush=True)
         else:
+            text_preview = requests[i].text()[-80:].replace('\n', ' ')
             print(
-                f"{animation_frame} Decode [req {requests[i].prompt_idx}, {requests[i].offset}]: {requests[i].text()[-80:].replace('\n', ' ')}",
+                f"{animation_frame} Decode [req {requests[i].prompt_idx}, {requests[i].offset}]: {text_preview}",
                 flush=True,
             )
     if pending_prefill_request is not None:
@@ -131,6 +134,7 @@ def batch_generate(
     pending_prefill_request = None
     next_request_idx = 0
     progress_cnt = 0
+    start_time = datetime.now()
 
     while True:
         if len(prompts) == 0 and all(is_idle):
@@ -173,6 +177,7 @@ def batch_generate(
                     pending_prefill_request,
                     len(prompts),
                     progress_cnt,
+                    start_time,
                 )
                 progress_cnt += 1
 
@@ -214,6 +219,7 @@ def batch_generate(
                 pending_prefill_request,
                 len(prompts),
                 progress_cnt,
+                start_time,
             )
             progress_cnt += 1
     return result

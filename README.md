@@ -30,7 +30,6 @@ Week 1 is complete. Week 2 is in progress.
 
 | Week + Chapter | Topic                                                       | Code | Test | Doc |
 | -------------- | ----------------------------------------------------------- | ---- | ---- | --- |
-|                | Goal: wire up Qwen and make it generate text                |  | | |
 | 1.1            | Attention                                                   | ✅    | ✅   | ✅  |
 | 1.2            | RoPE                                                        | ✅    | ✅   | ✅  |
 | 1.3            | Grouped Query Attention                                     | ✅    | ✅   | ✅  |

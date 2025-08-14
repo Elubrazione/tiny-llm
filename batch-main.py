@@ -4,7 +4,7 @@ import argparse
 import random
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", type=str, default="Qwen/Qwen2-0.5B-Instruct-MLX")
+parser.add_argument("--model", type=str, default="qwen2-0.5b")
 
 shanghai_wikipedia = """
 Shanghai[a] is a direct-administered municipality and the most populous urban area in China. The city is located on the Chinese shoreline on the southern estuary of the Yangtze River, with the Huangpu River flowing through it. The population of the city proper is the second largest in the world after Chongqing, with around 24.87 million inhabitants in 2023, while the urban area is the most populous in China, with 29.87 million residents. As of 2022, the Greater Shanghai metropolitan area was estimated to produce a gross metropolitan product (nominal) of nearly 13 trillion RMB ($1.9 trillion).[13] Shanghai is one of the world's major centers for finance, business and economics, research, science and technology, manufacturing, transportation, tourism, and culture. The Port of Shanghai is the world's busiest container port.
@@ -38,23 +38,31 @@ parser.add_argument("--solution", type=str, default="tiny_llm")
 parser.add_argument("--device", type=str, default="gpu")
 parser.add_argument("--batch-size", type=int, default=5)
 parser.add_argument("--prefill-step", type=int, default=128)
+parser.add_argument("--enable-flash-attn", action="store_true")
+parser.add_argument("--enable-thinking", action="store_true")
 args = parser.parse_args()
 
 if args.solution == "tiny_llm":
     print("Using your tiny_llm solution")
-    from tiny_llm import Qwen2ModelWeek2, batch_generate
+    from tiny_llm import models, batch_generate
 
 elif args.solution == "tiny_llm_ref" or args.solution == "ref":
     print("Using tiny_llm_ref solution")
-    from tiny_llm_ref import Qwen2ModelWeek2, batch_generate
+    from tiny_llm_ref import models, batch_generate
 
 else:
     raise ValueError(f"Solution {args.solution} not supported")
 
+args.model = models.shortcut_name_to_full_name(args.model)
 mlx_model, tokenizer = load(args.model)
 
 with mx.stream(mx.gpu if args.device == "gpu" else mx.cpu):
-    tiny_llm_model = Qwen2ModelWeek2(mlx_model)
+    print(
+        f"Using week2 loader with flash_attn={args.enable_flash_attn} thinking={args.enable_thinking} for {args.model}"
+    )
+    tiny_llm_model = models.dispatch_model(
+        args.model, mlx_model, week=2, enable_flash_attn=args.enable_flash_attn
+    )
     encoded_prompts = []
     for idx, prompt in enumerate(prompts):
         print(f"Prompt {idx}: {prompt}")
@@ -66,6 +74,7 @@ with mx.stream(mx.gpu if args.device == "gpu" else mx.cpu):
             messages,
             tokenize=False,
             add_generation_prompt=True,
+            enable_thinking=args.enable_thinking,
         )
         encoded_prompts.append(prompt)
     result = batch_generate(

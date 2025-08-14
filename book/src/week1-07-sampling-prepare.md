@@ -24,7 +24,7 @@ To implement temperature sampling, simply divide the logprobs by the temperature
 randomly select the next token.
 
 ```bash
-pdm run main --solution tiny_llm --loader week1 --model Qwen/Qwen2-0.5B-Instruct-MLX --sampler-temp 0.5
+pdm run main --solution tiny_llm --loader week1 --model qwen2-0.5b --sampler-temp 0.5
 ```
 
 **Top-k Sampling**
@@ -36,7 +36,7 @@ You can use `mx.argpartition` to partition the output so that you can know the i
 mask those logprobs outside the top-k with `-mx.inf`. After that, do temperature sampling.
 
 ```bash
-pdm run main --solution tiny_llm --loader week1 --model Qwen/Qwen2-0.5B-Instruct-MLX --sampler-temp 0.5 --sampler-top-k 10
+pdm run main --solution tiny_llm --loader week1 --model qwen2-0.5b --sampler-temp 0.5 --sampler-top-k 10
 ```
 
 **Top-p (Nucleus) Sampling**
@@ -49,7 +49,7 @@ probability to lowest), and then, do a `cumsum` over the sorted logprobs to get 
 those logprobs outside the top-p with `-mx.inf`. After that, do temperature sampling.
 
 ```bash
-pdm run main --solution tiny_llm --loader week1 --model Qwen/Qwen2-0.5B-Instruct-MLX --sampler-temp 0.5 --sampler-top-p 0.9
+pdm run main --solution tiny_llm --loader week1 --model qwen2-0.5b --sampler-temp 0.5 --sampler-top-p 0.9
 ```
 
 ## Task 2: Prepare for Week 2

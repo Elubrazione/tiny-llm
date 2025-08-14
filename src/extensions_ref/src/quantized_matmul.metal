@@ -1,9 +1,13 @@
+#include <metal_stdlib>
+#include "mlx/backend/metal/kernels/utils.h"
+
+template <typename T>
 [[kernel]] void quantized_matmul_w4a16_g64(
-    device const half* scales [[buffer(0)]],
-    device const half* biases [[buffer(1)]],
-    device const half* a [[buffer(2)]],
+    device const T* scales [[buffer(0)]],
+    device const T* biases [[buffer(1)]],
+    device const T* a [[buffer(2)]],
     device const uint32_t* b [[buffer(3)]],
-    device half* out [[buffer(4)]],
+    device T* out [[buffer(4)]],
     device const int &M [[buffer(5)]],
     device const int &N [[buffer(6)]],
     device const int &K [[buffer(7)]],
@@ -43,6 +47,9 @@
             }
             scales_biases_loc += 1;
         }
-        out[i * K + k] = sum;
+        out[i * K + k] = static_cast<T>(sum);
     }
 }
+
+instantiate_kernel("quantized_matmul_w4a16_g64_f16", quantized_matmul_w4a16_g64, float16_t);
+instantiate_kernel("quantized_matmul_w4a16_g64_bf16", quantized_matmul_w4a16_g64, bfloat16_t);

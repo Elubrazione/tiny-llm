@@ -23,14 +23,17 @@ mx::array quantized_matmul(const mx::array &scales,         // Input array scale
                            const bool transpose_b,          // Whether to transpose b
                            mx::StreamOrDevice s /* = {} */  // Stream on which to schedule the operation
 ) {
-    if (scales.dtype() != mx::float16 || biases.dtype() != mx::float16) {
-        throw std::runtime_error("quantized_matmul: scales and biases must be float16");
+    if (scales.dtype() != mx::float16 && scales.dtype() != mx::bfloat16) {
+        throw std::runtime_error("quantized_matmul: scales must be float16 or bfloat16");
+    }
+    if (scales.dtype() != biases.dtype()) {
+        throw std::runtime_error("quantized_matmul: scales and biases must be the same dtype");
     }
     if (b.dtype() != mx::uint32) {
         throw std::runtime_error("quantized_matmul: b must be uint32");
     }
-    if (a.dtype() != mx::float16) {
-        throw std::runtime_error("quantized_matmul: a must be float16");
+    if (a.dtype() != scales.dtype()) {
+        throw std::runtime_error("quantized_matmul: a must be the same dtype as scales");
     }
     if (a.shape().size() != 2) {
         throw std::runtime_error("quantized_matmul: a must be a 2D array");
@@ -68,7 +71,7 @@ mx::array quantized_matmul(const mx::array &scales,         // Input array scale
 
     return mx::array(
         /* const mx::Shape& shape = */ out_shape,
-        /* mx::Dtype dtype = */ mx::float16,
+        /* mx::Dtype dtype = */ a.dtype(),
         /* std::shared_ptr<mx::Primitive> primitive = */
         std::make_shared<QuantizedMatmul>(to_stream(s), group_size, bits),
         /* const std::vector<mx::array>& inputs = */ {scales, biases, a, b});
@@ -92,7 +95,7 @@ void quantized_matmul_impl(const mx::array &scales, const mx::array &biases, con
         throw std::runtime_error("quantized_matmul: b must be contiguous");
     }
 
-    // Launch the CPU kernel
+    // Launch the CPU kernel, TODO: support bfloat16
     encoder.dispatch([out_ptr = out.data<float16_t>(), out_shape = out.shape(), out_strides = out.strides(),
                       a = mx::array::unsafe_weak_copy(a), b = mx::array::unsafe_weak_copy(b),
                       scales = mx::array::unsafe_weak_copy(scales), biases = mx::array::unsafe_weak_copy(biases)]() {
@@ -164,7 +167,15 @@ void QuantizedMatmul::eval_gpu(const std::vector<mx::array> &inputs, std::vector
 
     // Make a kernel from this metal library
     auto library = d.get_library("tiny_llm_ext_ref");
-    auto kernel = d.get_kernel("quantized_matmul_w4a16_g64", library);
+    const char* kernel_name;
+    if (a.dtype() == mx::float16) {
+        kernel_name = "quantized_matmul_w4a16_g64_f16";
+    } else if (a.dtype() == mx::bfloat16) {
+        kernel_name = "quantized_matmul_w4a16_g64_bf16";
+    } else {
+        throw std::runtime_error("quantized_matmul: a must be float16 or bfloat16");
+    }
+    auto kernel = d.get_kernel(kernel_name, library);
 
     // Prepare to encode kernel
     auto &compute_encoder = d.get_command_encoder(s.index);
