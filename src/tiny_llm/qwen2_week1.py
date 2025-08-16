@@ -179,12 +179,107 @@ class Qwen2TransformerBlock:
         
 
 class Qwen2ModelWeek1:
-    def __init__(self, mlx_model: Any):
-        pass
+    def __init__(self, mlx_model: Any, precision=mx.float16):
+        '''ModelArgs(
+            model_type='qwen2', hidden_size=3584, num_hidden_layers=28, 
+            intermediate_size=18944, num_attention_heads=28, rms_norm_eps=1e-06,
+            vocab_size=152064, num_key_value_heads=4, max_position_embeddings=32768,
+            rope_theta=1000000.0, rope_traditional=False, rope_scaling=None,
+            tie_word_embeddings=False
+        )'''
+        self.precision = precision
+        self.hidden_size = mlx_model.args.hidden_size
+        self.vocab_size = mlx_model.args.vocab_size
+        self.rms_norm_eps = mlx_model.args.rms_norm_eps
+
+        self.embedding = Embedding(
+            self.vocab_size,
+            self.hidden_size,
+            dequantize_linear(mlx_model.model.embed_tokens).astype(self.precision)
+        )
+
+        def to_precision(d: dict) -> dict:
+            return {k: v.astype(self.precision) for k, v in d.items()}
+
+        self.layers = []
+        for i in range(mlx_model.args.num_hidden_layers):
+            mlp_w = to_precision({
+                'w_gate': dequantize_linear(mlx_model.model.layers[i].mlp.gate_proj),
+                'w_up': dequantize_linear(mlx_model.model.layers[i].mlp.up_proj),
+                'w_down': dequantize_linear(mlx_model.model.layers[i].mlp.down_proj),
+            })
+
+            layernorm_w = to_precision({
+                'w_input_layernorm': mlx_model.model.layers[i].input_layernorm.weight,
+                'w_post_attention_layernorm': mlx_model.model.layers[i].post_attention_layernorm.weight,
+            })
+
+            self_attn_w = to_precision({
+                'wq': dequantize_linear(mlx_model.model.layers[i].self_attn.q_proj),
+                'wk': dequantize_linear(mlx_model.model.layers[i].self_attn.k_proj),
+                'wv': dequantize_linear(mlx_model.model.layers[i].self_attn.v_proj),
+                'wo': dequantize_linear(mlx_model.model.layers[i].self_attn.o_proj),
+                'bq': mlx_model.model.layers[i].self_attn.q_proj.bias,
+                'bk': mlx_model.model.layers[i].self_attn.k_proj.bias,
+                'bv': mlx_model.model.layers[i].self_attn.v_proj.bias,
+            })
+
+            layer = Qwen2TransformerBlock(
+                num_attention_heads=mlx_model.args.num_attention_heads,
+                num_kv_heads=mlx_model.args.num_key_value_heads,
+                hidden_size=self.hidden_size,
+                intermediate_size=mlx_model.args.intermediate_size,
+                rms_norm_eps=self.rms_norm_eps,
+                **mlp_w,
+                **layernorm_w,
+                **self_attn_w,
+                max_seq_len=mlx_model.args.max_position_embeddings,
+                theta=mlx_model.args.rope_theta
+            )
+            self.layers.append(layer)
+
+        self.norm = RMSNorm(
+            dim=self.hidden_size,
+            weight=mlx_model.model.norm.weight.astype(self.precision),
+            eps=self.rms_norm_eps
+        )
+        
+        # You can decide which strategy to use based on the mlx_model.args.tie_word_embeddings argument.
+        # If it is true, then you should use Embedding::as_linear.
+        # Otherwise, the lm_head linear layer will be available and you should load its parameters.
+        if mlx_model.args.tie_word_embeddings:
+            self.lm_head_w = None
+        else:
+            self.lm_head_w = dequantize_linear(mlx_model.lm_head)
 
     def __call__(
         self,
         inputs: mx.array,
         offset: int,
     ) -> mx.array:
-        pass
+        '''
+        input
+        | (tokens: N..)
+        Embedding
+        | (N.. x hidden_size); note that hidden_size==embedding_dim
+        Qwen2TransformerBlock
+        | (N.. x hidden_size)
+        Qwen2TransformerBlock
+        | (N.. x hidden_size)
+        ...
+        |
+        RMSNorm 
+        | (N.. x hidden_size)
+        Embedding::as_linear  OR  Linear (lm_head)
+        | (N.. x vocab_size)
+        output
+        '''
+        out = self.embedding(inputs)
+        for layer in self.layers:
+            # set mask=causal when the input sequence is longer than 1.
+            out = layer(out, offset, mask="causal" if out.shape[1] > 1 else None)
+        out = self.norm(out)
+        if self.lm_head_w is not None:
+            return linear(out, self.lm_head_w)
+        else:
+            return self.embedding.as_linear(out)
