@@ -100,13 +100,15 @@ x: B, L, E
 q = linear(x, wq, bq) -> B, L, H_q, D
 k = linear(x, wk, bk) -> B, L, H, D
 v = linear(x, wv, bv) -> B, L, H, D
-q = rope(q, offset=slice(offset, offset + L))
-k = rope(k, offset=slice(offset, offset + L))
+q = rope(q, offset=slice(0, L))
+k = rope(k, offset=slice(0, L))
 (transpose as needed)
 x = scaled_dot_product_attention_grouped(q, k, v, scale, mask) -> B, L, H_q, D ; Do this at float32 precision
 (transpose as needed)
 x = linear(x, wo) -> B, L, E
 ```
+
+Keep in mind that you should use non-traditional RoPE.
 
 You can test your implementation by running the following command:
 

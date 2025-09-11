@@ -13,8 +13,8 @@ def simple_generate(
 ) -> str:
     # You only need the last token's logits to decide the next token. 
     # Therefore, you need to select the last token's logits from the output logits.
-    def _step(model, y, offset):
-        out = model(y[None], offset)[:, -1, :]   # (N, L, E), here batch_size=1 by using y[None]
+    def _step(model, y):
+        out = model(y[None])[:, -1, :]   # (N, L, E), here batch_size=1 by using y[None]
         output_probs = out - mx.logsumexp(out, keepdims=True)
         if sampler is None:
             return mx.argmax(output_probs, axis=-1)
@@ -27,7 +27,7 @@ def simple_generate(
     detokenizer.reset()
 
     while True:
-        tk = _step(model, token_ids, 0) # Whatever the value of offset is
+        tk = _step(model, token_ids) # Whatever the value of offset is
         mx.eval(tk)
         token_ids = mx.concat([token_ids, tk])
         if tk.item() == tokenizer._tokenizer.eos_token_id:
@@ -39,7 +39,8 @@ def simple_generate(
 def simple_generate_with_kv_cache(
     model: Qwen2ModelWeek2, tokenizer: TokenizerWrapper, prompt: str
 ) -> str:
-    pass
+    def _step(model, y, offset, kv_cache):
+        pass
 
 
 def batch_generate(

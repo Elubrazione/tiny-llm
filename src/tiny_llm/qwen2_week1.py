@@ -64,7 +64,6 @@ class Qwen2MultiHeadAttention:
     def __call__(
         self,
         x: mx.array,
-        offset: int,
         mask: mx.array | str | None = None,
     ) -> mx.array:
         '''
@@ -167,7 +166,6 @@ class Qwen2TransformerBlock:
     def __call__(
         self,
         x: mx.array,
-        offset: int,
         mask: mx.array | str | None = None,
     ) -> mx.array:
         out1 = self.multi_head_att(self.input_layernorm(x),
@@ -255,7 +253,6 @@ class Qwen2ModelWeek1:
     def __call__(
         self,
         inputs: mx.array,
-        offset: int,
     ) -> mx.array:
         '''
         input

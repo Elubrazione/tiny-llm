@@ -190,7 +190,7 @@ def test_task_3_qwen2_grouped_query_attention(
             theta=theta,
         )
 
-        user_output = user_attention(x, offset=0, mask=mask)
+        user_output = user_attention(x, mask=mask)
         mlx_output = mlx_attention(x, mask=mask, cache=None)
 
         assert_allclose(user_output, mlx_output, precision=precision)

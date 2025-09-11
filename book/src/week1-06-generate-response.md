@@ -13,12 +13,10 @@ src/tiny_llm/generate.py
 The `simple_generate` function takes a model, a tokenizer, and a prompt, and generates the response. The generation
 process is done in two parts: first prefill, and then decode.
 
-First thing is to implement the `_step` sub-function. It takes a list of tokens `y`, and the offset of the first token
-provided to the model. The model will return the logits: the probability distribution of the next token for each position.
+First thing is to implement the `_step` sub-function. It takes a list of tokens `y`. The model will return the logits: the probability distribution of the next token for each position.
 
 ```
 y: N.. x S, where in week 1 we don't implement batch, so N.. = 1
-offset: int
 output_logits: N.. x S x vocab_size
 ```
 
@@ -42,10 +40,6 @@ With the `_step` function implemented, you can now implement the full `simple_ge
 first prefill the model with the prompt. As the prompt is a string, you need to first convert it to a list of tokens
 by using the tokenizer `tokenizer.encode`.
 
-* The prefill step is done by calling the `_step` function with all the tokens in the prompt with `offset=0`. It gives back
-the first token in the response.
-* The decode step is done by calling the `_step` function with all the previous tokens and the offset of the last token.
-
 You will need to implement a while loop to keep generating the response until the model outputs the EOS `tokenizer.eos_token_id` token.
 In the loop, you will need to store all previous tokens in a list, and use the detokenizer `tokenizer.detokenizer` to print the response.
 
@@ -53,9 +47,9 @@ An example of the sequences provided to the `_step` function is as below:
 
 ```
 tokenized_prompt: [1, 2, 3, 4, 5, 6]
-prefill: _step(model, [1, 2, 3, 4, 5, 6], 0) # returns 7
-decode: _step(model, [1, 2, 3, 4, 5, 6, 7], 7) # returns 8
-decode: _step(model, [1, 2, 3, 4, 5, 6, 7, 8], 8) # returns 9
+prefill: _step(model, [1, 2, 3, 4, 5, 6]) # returns 7
+decode: _step(model, [1, 2, 3, 4, 5, 6, 7]) # returns 8
+decode: _step(model, [1, 2, 3, 4, 5, 6, 7, 8]) # returns 9
 ...
 ```
 
