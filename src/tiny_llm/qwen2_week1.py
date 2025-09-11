@@ -97,14 +97,17 @@ class Qwen2MultiHeadAttention:
 
         # Apply rotary RoPE to query and key
         query, key = tuple(map(
-            lambda it: self.rope(it, offset=slice(offset, offset + L)), [query, key]
+            lambda it: self.rope(it, offset=slice(0, L)), [query, key]
         ))
 
         # Perform scaled dot-product attention, swap axes (B, L, H, D) => (B, H, L, D)
         # After attention swap back and reshape to (B, H_q, L, D) => (B, L, H_q, D) => (B, L, E)
         out = scaled_dot_product_attention_grouped(
-            query.swapaxes(-2, -3), key.swapaxes(-2, -3), value.swapaxes(-2, -3), mask=mask
-        ).swapaxes(-2, -3).reshape(B, L, E)
+            query.swapaxes(-2, -3).astype(mx.float32),
+            key.swapaxes(-2, -3).astype(mx.float32),
+            value.swapaxes(-2, -3).astype(mx.float32),
+            mask=mask
+        ).astype(x.dtype).swapaxes(-2, -3).reshape(B, L, E) # 一定要转回原来 x 的精度
 
         return linear(out, self.wo)
 
@@ -168,8 +171,7 @@ class Qwen2TransformerBlock:
         x: mx.array,
         mask: mx.array | str | None = None,
     ) -> mx.array:
-        out1 = self.multi_head_att(self.input_layernorm(x),
-                                  offset=offset, mask=mask)
+        out1 = self.multi_head_att(self.input_layernorm(x), mask=mask)
         out2 = out1 + x
         out3 = self.mlp(self.post_attention_layernorm(out2))
         out = out3 + out2
@@ -274,7 +276,7 @@ class Qwen2ModelWeek1:
         out = self.embedding(inputs)
         for layer in self.layers:
             # set mask=causal when the input sequence is longer than 1.
-            out = layer(out, offset, mask="causal" if out.shape[1] > 1 else None)
+            out = layer(out, mask="causal" if out.shape[1] > 1 else None)
         out = self.norm(out)
         if self.lm_head_w is not None:
             return linear(out, self.lm_head_w)
