@@ -40,7 +40,10 @@ def helper_test_task_3(model_name: str, iters: int = 10):
         user_output = user_output - mx.logsumexp(user_output, keepdims=True)
         ref_output = mlx_model(input)
         ref_output = ref_output - mx.logsumexp(ref_output, keepdims=True)
-        assert_allclose(user_output, ref_output, precision=mx.float16, rtol=0.1, atol=0.5)
+        assert_allclose(
+            user_output, ref_output, precision=mx.float16, rtol=0.1, atol=0.5
+        )
+
 
 @pytest.mark.skipif(
     not qwen_2_05b_model_exists(), reason="Qwen2-0.5B-Instruct-MLX model not found"

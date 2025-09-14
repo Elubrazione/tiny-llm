@@ -3,6 +3,7 @@ from .utils import *
 from .tiny_llm_base import Qwen2ModelWeek1, Embedding, dequantize_linear, qwen2_week1
 from mlx_lm import load
 
+
 @pytest.mark.parametrize("stream", AVAILABLE_STREAMS, ids=AVAILABLE_STREAMS_IDS)
 @pytest.mark.parametrize("precision", PRECISIONS, ids=PRECISION_IDS)
 @pytest.mark.parametrize("mask", [None, "causal"], ids=["no_mask", "causal_mask"])
@@ -18,7 +19,7 @@ def test_task_1_transformer_block(
         NUM_KV_HEADS = 2
         HIDDEN_SIZE = 32
         INTERMEDIATE_SIZE = HIDDEN_SIZE * 4
-        
+
         args = qwen2.ModelArgs(
             model_type="qwen2",
             hidden_size=HIDDEN_SIZE,
@@ -47,8 +48,10 @@ def test_task_1_transformer_block(
         w_down = mlx_mlp.down_proj.weight
 
         w_input_layernorm = mlx_transformer_block.input_layernorm.weight
-        w_post_attention_layernorm = mlx_transformer_block.post_attention_layernorm.weight
-        
+        w_post_attention_layernorm = (
+            mlx_transformer_block.post_attention_layernorm.weight
+        )
+
         user_transformer_block = qwen2_week1.Qwen2TransformerBlock(
             num_attention_heads=NUM_ATTENTION_HEAD,
             num_kv_heads=NUM_KV_HEADS,
@@ -66,18 +69,17 @@ def test_task_1_transformer_block(
             w_up=w_up,
             w_down=w_down,
             w_input_layernorm=w_input_layernorm,
-            w_post_attention_layernorm=w_post_attention_layernorm
+            w_post_attention_layernorm=w_post_attention_layernorm,
         )
 
         mx.random.seed(42)
-        x = mx.random.uniform(
-            shape=(BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE), dtype=precision
-        )
+        x = mx.random.uniform(shape=(BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE), dtype=precision)
 
         user_output = user_transformer_block(x, mask=mask)
         mlx_output = mlx_transformer_block(x, mask=mask, cache=None)
-        
+
         assert_allclose(user_output, mlx_output, precision=precision, rtol=1e-1)
+
 
 @pytest.mark.skipif(
     not qwen_2_05b_model_exists(), reason="Qwen2-0.5B-Instruct-MLX model not found"

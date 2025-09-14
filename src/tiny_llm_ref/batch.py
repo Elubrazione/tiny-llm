@@ -93,7 +93,7 @@ def _print_progress(
         if is_idle[i]:
             print(f"  Decode #{i}: idle", flush=True)
         else:
-            text_preview = requests[i].text()[-80:].replace('\n', ' ')
+            text_preview = requests[i].text()[-80:].replace("\n", " ")
             print(
                 f"{animation_frame} Decode [req {requests[i].prompt_idx}, {requests[i].offset}]: {text_preview}",
                 flush=True,

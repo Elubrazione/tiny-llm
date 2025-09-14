@@ -149,6 +149,10 @@ and the context of week 1 day 3: in the GQA implementation, k/v's sequence lengt
 q's sequence length is `L`. In the Qwen2 multihead attention implementation, `L'` is the "new token" and `L` is
 the total sequence length, which corresponds to `L` and `S` in week 1 respectively.
 
+Note that another refactor of this week's code is that all modules now take `QuantizedWeights` instead of `mx.array`
+for some weights. You will need to move the dequantize code from loading the model to each module first, and we
+will replace it with our own quantized matmul implementation for the rest of the week.
+
 ## Task 3: Implement the Model
 
 ```

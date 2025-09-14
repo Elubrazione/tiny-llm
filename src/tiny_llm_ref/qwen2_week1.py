@@ -215,7 +215,6 @@ class Qwen2ModelWeek1:
             self.w_lm_head = None
         self.mlx_model = mlx_model
 
-
     def __call__(
         self,
         inputs: mx.array,
