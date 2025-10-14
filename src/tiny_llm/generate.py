@@ -62,3 +62,12 @@ def simple_generate_with_kv_cache(
         offset += tokens.size
         tokens = tk
     return detokenizer.text
+
+def speculative_generate(
+    draft_model: Qwen2ModelWeek2,
+    model: Qwen2ModelWeek2,
+    draft_tokenizer: TokenizerWrapper,
+    tokenizer: TokenizerWrapper,
+    prompt: str,
+) -> str:
+    pass

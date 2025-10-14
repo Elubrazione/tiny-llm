@@ -8,11 +8,11 @@ version = "0.1.0"
 requires-python = ">=3.10, <3.13"
 readme = "README.md"
 dependencies = [
-    "mlx>=0.25.0",
+    "mlx>=0.29.1",
     "torch>=2.6.0",
     "torchtune>=0.6.1",
     "torchao>=0.10.0",
-    "mlx-lm>=0.23.0",
+    "mlx-lm>=0.27.1",
     "numpy>=2.2.4",
     "pytest>=8.3.5",
     "ruff>=0.11.6",
@@ -49,7 +49,5 @@ copy-test.cmd = "python scripts/dev-tools.py copy-test"
 book.cmd = "mdbook serve book/"
 
 [tool.pytest.ini_options]
-addopts = [
-    "--import-mode=importlib",
-]
+addopts = ["--import-mode=importlib"]
 pythonpath = "src"

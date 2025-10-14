@@ -50,7 +50,13 @@ src/tiny_llm/positional_encoding.py
 src/tiny_llm/attention.py::causal_mask
 ```
 
-Ensure your RoPE implementation accepts a list of offsets. Also, make sure your mask implementation correctly handles the case where `L != S`.
+Ensure your RoPE implementation accepts a `list[slice]` of offsets (one slice for sequence in the batch). Also, make sure your mask implementation correctly handles the case where `L != S`.
+
+You can verify multi-offset RoPE, and that masking works for attention and flash attention with:
+
+```bash
+pdm run test --week 2 --day 6 -- -k task_1
+```
 
 ## Task 2: Batch KV Cache
 
@@ -85,6 +91,12 @@ src/tiny_llm/qwen2_week2.py
 ```
 
 Ensure your model can handle multiple requests simultaneously. You should also use the masks returned by the batch KV cache.
+
+You should pass all of the tests by running:
+
+```bash
+pdm run test --week 2 --day 6 -- -k task_3
+```
 
 ## Task 4: Batch Generate
 

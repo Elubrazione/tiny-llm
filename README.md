@@ -42,14 +42,14 @@ Week 1 is complete. Week 2 is in progress.
 | 2.3            | Quantized Matmul and Linear - GPU                           | ✅    | ✅   | 🚧  |
 | 2.4            | Flash Attention 2 - CPU                                     | ✅    | ✅   | 🚧  |
 | 2.5            | Flash Attention 2 - GPU                                     | ✅    | ✅   | 🚧  |
-| 2.6            | Continuous Batching                                         | ✅    | 🚧   | ✅  |
-| 2.7            | Chunked Prefill                                             | ✅    | 🚧   | ✅  |
+| 2.6            | Continuous Batching                                         | ✅    | ✅   | ✅  |
+| 2.7            | Chunked Prefill                                             | ✅    | ✅   | ✅  |
 | 3.1            | Paged Attention - Part 1                                    | 🚧    | 🚧   | 🚧  |
 | 3.2            | Paged Attention - Part 2                                    | 🚧    | 🚧   | 🚧  |
 | 3.3            | MoE (Mixture of Experts)                                    | 🚧    | 🚧   | 🚧  |
-| 3.4            | Speculative Decoding                                        | 🚧    | 🚧   | 🚧  |
+| 3.4            | Speculative Decoding                                        | 🚧    | ✅   | 🚧  |
 | 3.5            | RAG Pipeline                                                | 🚧    | 🚧   | 🚧  |
 | 3.6            | AI Agent     / Tool Calling                                 | 🚧    | 🚧   | 🚧  |
-| 3.7            | Long Context                                                 | 🚧    | 🚧   | 🚧  |
+| 3.7            | Long Context                                                | 🚧    | 🚧   | 🚧  |
 
 Other topics not covered: quantized/compressed kv cache, prefix/prompt cache; sampling, fine tuning; smaller kernels (softmax, silu, etc)
