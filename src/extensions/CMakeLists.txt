@@ -37,6 +37,7 @@ target_sources(
   PUBLIC
   ${CMAKE_CURRENT_LIST_DIR}/src/axpby.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/utils.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/src/quantized_matmul.cpp
 )
 
 # Add include headers
