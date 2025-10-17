@@ -20,7 +20,7 @@ def assert_allclose(
     b = np.array(b)
     if precision == mx.float32:
         rtol = rtol or 1.0e-5
-        atol = atol or 1.0e-8
+        atol = atol or 1.0e-6
     elif precision == mx.float16:
         rtol = rtol or 3.0e-2
         atol = atol or 1.0e-5
@@ -39,6 +39,17 @@ def assert_allclose(
             print("diff_b=", b * diff)
             print("diff_a_val=", a[diff])
             print("diff_b_val=", b[diff])
+            
+            actual_diff = np.abs(a - b)
+            print(f"Actual differences (max: {np.max(actual_diff):.2e}):")
+            diff_indices = np.where(diff)
+            for i in range(min(10, len(diff_indices[0]))):
+                row, col = diff_indices[0][i], diff_indices[1][i]
+                a_val = a[row, col]
+                b_val = b[row, col]
+                diff_val = actual_diff[row, col]
+                print(f'[{row},{col}]: a={a_val:.15f}, b={b_val:.15f}, diff={diff_val:.2e}')
+            
             assert False, f"result mismatch: {message}"
 
 

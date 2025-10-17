@@ -102,7 +102,7 @@ def quantized_linear(
     w: QuantizedWeights,
     bias: mx.array | None = None,
 ) -> mx.array:
-    # result = quantized_matmul(w.scales, w.biases, w.group_size, w.bits, x, w.weight, True)
+    # result = quantized_matmul_python_ver(w.scales, w.biases, w.group_size, w.bits, x, w.weight, True)
     result = quantized_matmul(w.scales, w.biases, w.group_size, w.bits, x, w.weight, True)
     if bias is not None:
         result = result + bias
