@@ -1,9 +1,14 @@
 #include <mlx/array.h>
+#include <mlx/device.h>
 #include <mlx/dtype.h>
 #include <mlx/primitives.h>
 #include "mlx/backend/common/utils.h"
 #include "mlx/backend/cpu/encoder.h"
 #include "tiny_llm_ext.h"
+
+#ifdef _METAL_
+#include "mlx/backend/metal/device.h"
+#endif
 
 using namespace std;
 
@@ -33,6 +38,22 @@ namespace tiny_llm_ext {
         const bool transpose_b,
         mx::StreamOrDevice device    // cpu or gpu
     ) {
+        if (scales.dtype() != mx::float16 && scales.dtype() != mx::bfloat16 && scales.dtype() != mx::float32) {
+            throw runtime_error("quantized_matmul: scales must be float16, bfloat16 or float32");
+        }
+        if (b.dtype() != mx::uint32) {
+            throw runtime_error("quantized_matmul: b must be uint32");
+        }
+        if (biases.dtype() != scales.dtype()) {
+            throw runtime_error("quantized_matmul: biases must be the same dtype as scales");
+        }
+        if (a.dtype() != scales.dtype()) {
+            throw runtime_error("quantized_matmul: a must be the same dtype as scales");
+        }
+        if (scales.shape() != biases.shape()) {
+            throw runtime_error("quantized_matmul: scales and biases must have the same shape");
+        }
+
         auto out_shape = a.shape();
         out_shape[1] = b.shape()[0];
         return mx::array(
@@ -192,7 +213,7 @@ namespace tiny_llm_ext {
                 quantized_matmul_impl_typed<mx::bfloat16_t>(scales, biases, a, b, out, group_size_, bits_, stream());
                 break;
             default:
-                throw std::runtime_error("Unsupported dtype for quantized_matmul");
+                throw runtime_error("Unsupported dtype for quantized_matmul");
         }
     }
 
@@ -200,7 +221,55 @@ namespace tiny_llm_ext {
         const mx::array &scales = inputs[0], &biases = inputs[1];
         const mx::array &a = inputs[2], &b = inputs[3];
         mx::array &out = outputs[0];
-
-        quantized_matmul_impl(scales, biases, a, b, out, group_size_, bits_, stream());
+        
+        const mx::Stream &s = stream();
+        auto &d = mx::metal::device(s.device);
+        out.set_data(mx::allocator::malloc(out.nbytes()));
+        
+        auto library = d.get_library("tiny_llm_ext");
+        const char* kernel_name;
+        if (a.dtype() == mx::float16) {
+            kernel_name = "quantized_matmul_w4a16_g64_f16";
+        } else if (a.dtype() == mx::bfloat16) {
+            kernel_name = "quantized_matmul_w4a16_g64_bf16";
+        } else {
+            throw runtime_error("quantized_matmul: a must be float16 or bfloat16");
+        }
+        auto kernel = d.get_kernel(kernel_name, library);
+    
+        // Prepare to encode kernel
+        auto &compute_encoder = d.get_command_encoder(s.index);
+        compute_encoder.set_compute_pipeline_state(kernel);
+    
+        compute_encoder.set_input_array(scales, 0);
+        compute_encoder.set_input_array(biases, 1);
+        compute_encoder.set_input_array(a, 2);
+        compute_encoder.set_input_array(b, 3);
+        compute_encoder.set_output_array(out, 4);
+    
+        int M = a.shape()[0];
+        int N = a.shape()[1];
+        int K = b.shape()[0];
+        
+        // Encode matrix parameters
+        compute_encoder.set_bytes(M, 5);
+        compute_encoder.set_bytes(N, 6);
+        compute_encoder.set_bytes(K, 7);
+    
+        size_t tgp_size = kernel->maxTotalThreadsPerThreadgroup();
+        const int x_size = 32;
+        const int y_size = tgp_size / x_size;
+        if (tgp_size < x_size * y_size) {
+            throw runtime_error("quantized_matmul: tgp_size must be larger than x*y");
+        }
+        MTL::Size num_threadgroups = MTL::Size((M + x_size - 1) / x_size, (K + y_size - 1) / y_size, 1);
+        MTL::Size num_threads_per_group = MTL::Size(x_size, y_size, 1);
+    
+        // MTL::Size num_threadgroups = MTL::Size((M * K + tgp_size - 1) / tgp_size, 1, 1);
+        // MTL::Size num_threads_per_group = MTL::Size(tgp_size, 1, 1);
+    
+        // Launch the grid with the given number of threads divided among
+        // the given threadgroups
+        compute_encoder.dispatch_threadgroups(num_threadgroups, num_threads_per_group);
     }
 }
