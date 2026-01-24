@@ -117,11 +117,13 @@ def speculative_generate(
 
     def draft_generate(model, last_token, offset, kv_cache, num_drafts):
         tokens = []
+        current_offset = offset
         for _ in range(num_drafts):
-            token, _ = _step(model, last_token, offset, kv_cache)
+            token, _ = _step(model, last_token, current_offset, kv_cache)
             mx.eval(token)
             tokens.append(token.item())
             last_token = token
+            current_offset += 1
         return tokens
 
     num_drafts = 4
@@ -131,7 +133,8 @@ def speculative_generate(
             layer.rewind(revert_len)
 
     def _print_text(text, progress):
-        print(f"+{progress} {text.replace('\n', ' ')[-80:]}")
+        newline = '\n'
+        print(f"+{progress} {text.replace(newline, ' ')[-80:]}")
 
     # speculative decode
     while True:
